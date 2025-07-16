@@ -20574,6 +20574,17 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/mtd/qcom,nandc.yaml
 F:	drivers/mtd/nand/raw/qcom_nandc.c
 
+QUALCOMM MEDIA PLATFORM
+M:	Bryan O'Donoghue <bod@kernel.org>
+L:	linux-media@vger.kernel.org
+L:	linux-arm-msm@vger.kernel.org
+S:	Supported
+Q:	https://patchwork.linuxtv.org/project/linux-media/list
+T:	git git://linuxtv.org/media.git
+F:	Documentation/devicetree/bindings/media/*qcom*
+F:	drivers/media/platform/qcom
+F:	include/dt-bindings/media/*qcom*
+
 QUALCOMM QSEECOM DRIVER
 M:	Maximilian Luz <luzmaximilian@gmail.com>
 L:	linux-arm-msm@vger.kernel.org
