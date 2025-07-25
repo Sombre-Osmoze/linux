@@ -717,6 +717,9 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 	if (ret)
 		goto unwind_interfaces;
 
+	/* Kick the outgoing edge after allocating entries */
+	qcom_smp2p_kick(smp2p);
+
 	/*
 	 * Treat smp2p interrupt as wakeup source, but keep it disabled
 	 * by default. User space can decide enabling it depending on its
