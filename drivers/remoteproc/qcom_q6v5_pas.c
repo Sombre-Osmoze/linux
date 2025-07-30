@@ -674,6 +674,13 @@ static const struct rproc_ops qcom_pas_minidump_ops = {
 	.attach = qcom_pas_attach,
 };
 
+static const struct rproc_ops qcom_pas_ops_no_reset = {
+	.attach = qcom_pas_attach,
+	.da_to_va = qcom_pas_da_to_va,
+	.stop = qcom_pas_stop,
+	.panic = qcom_pas_panic,
+};
+
 static int qcom_pas_init_clock(struct qcom_pas *pas)
 {
 	pas->xo = devm_clk_get(pas->dev, "xo");
@@ -969,6 +976,9 @@ static int qcom_pas_probe(struct platform_device *pdev)
 	if (desc->minidump_id)
 		ops = &qcom_pas_minidump_ops;
 
+	if (device_property_read_bool(&pdev->dev, "qcom,broken-reset"))
+		ops = &qcom_pas_ops_no_reset;
+
 	rproc = devm_rproc_alloc(&pdev->dev, desc->sysmon_name, ops, fw_name, sizeof(*pas));
 
 	if (!rproc) {
@@ -1048,6 +1058,13 @@ static int qcom_pas_probe(struct platform_device *pdev)
 	 */
 	qcom_q6v5_read_smp2p_state(&pas->q6v5);
 
+	if (rproc->state == RPROC_OFFLINE && !ops->start) {
+		dev_err(&pdev->dev, "reset broken and remoteproc not running during boot, exiting\n");
+		/* Release all resources, but return 0 so we don't block sync_state() */
+		ret = 0;
+		goto deinit_q6v5;
+	}
+
 	qcom_add_glink_subdev(rproc, &pas->glink_subdev, desc->ssr_name);
 	qcom_add_smd_subdev(rproc, &pas->smd_subdev);
 	qcom_add_pdm_subdev(rproc, &pas->pdm_subdev);
@@ -1091,6 +1108,7 @@ deinit_remove_pdm_smd_glink:
 	qcom_remove_pdm_subdev(rproc, &pas->pdm_subdev);
 	qcom_remove_smd_subdev(rproc, &pas->smd_subdev);
 	qcom_remove_glink_subdev(rproc, &pas->glink_subdev);
+deinit_q6v5:
 	qcom_q6v5_deinit(&pas->q6v5);
 detach_proxy_pds:
 	qcom_pas_pds_detach(pas, pas->proxy_pds, pas->proxy_pd_count);
@@ -1098,6 +1116,7 @@ unassign_mem:
 	qcom_pas_unassign_memory_region(pas);
 free_rproc:
 	device_init_wakeup(pas->dev, false);
+	pas->rproc = NULL;
 
 	return ret;
 }
