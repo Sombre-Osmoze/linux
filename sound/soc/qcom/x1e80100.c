@@ -15,6 +15,9 @@
 #include "qdsp6/q6dsp-common.h"
 #include "sdw.h"
 
+bool i_accept_the_danger = 0;
+module_param(i_accept_the_danger, bool, 0644);
+
 struct x1e80100_snd_cfg {
 	const char *driver_name;
 	const unsigned int *channels_map;
@@ -207,6 +210,9 @@ static int x1e80100_platform_probe(struct platform_device *pdev)
 	struct x1e80100_snd_data *data;
 	struct device *dev = &pdev->dev;
 	int ret;
+
+	if (!i_accept_the_danger)
+		return -EINVAL;
 
 	card = devm_kzalloc(dev, sizeof(*card), GFP_KERNEL);
 	if (!card)
