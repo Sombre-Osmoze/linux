@@ -6,6 +6,7 @@
 #ifndef _DP_PANEL_H_
 #define _DP_PANEL_H_
 
+#include <drm/drm_connector.h>
 #include <drm/drm_modes.h>
 #include <drm/msm_drm.h>
 
@@ -74,6 +75,9 @@ void msm_dp_panel_disable_vsc_sdp(struct msm_dp_panel *msm_dp_panel);
 
 void msm_dp_panel_enable_hdr_sdp(struct msm_dp_panel *msm_dp_panel, struct dp_sdp *hdr_sdp);
 void msm_dp_panel_disable_hdr_sdp(struct msm_dp_panel *msm_dp_panel);
+
+int msm_dp_panel_setup_vsc_sdp_colorimetry(struct msm_dp_panel *msm_dp_panel,
+					    enum drm_colorspace colorspace);
 
 /**
  * is_link_rate_valid() - validates the link rate

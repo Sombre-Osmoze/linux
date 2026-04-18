@@ -1485,6 +1485,9 @@ static void msm_dp_display_setup_hdr_sdp(struct msm_dp_display_private *dp_displ
 
 	if (!conn_state->hdr_output_metadata) {
 		msm_dp_panel_disable_hdr_sdp(dp_display->panel);
+		/* Disable colorimetry VSC unless YUV420 path owns it */
+		if (!dp_display->msm_dp_mode.out_fmt_is_yuv_420)
+			msm_dp_panel_disable_vsc_sdp(dp_display->panel);
 		return;
 	}
 
@@ -1516,7 +1519,11 @@ static void msm_dp_display_setup_hdr_sdp(struct msm_dp_display_private *dp_displ
 
 	msm_dp_panel_enable_hdr_sdp(dp_display->panel, &hdr_sdp);
 
-	drm_dbg_dp(dp->drm_dev, "HDR infoframe SDP programmed\n");
+	/* Send VSC SDP with colorimetry matching the Colorspace property */
+	msm_dp_panel_setup_vsc_sdp_colorimetry(dp_display->panel,
+					       conn_state->colorspace);
+
+	drm_dbg_dp(dp->drm_dev, "HDR infoframe SDP + VSC colorimetry programmed\n");
 }
 
 void msm_dp_display_atomic_pre_enable(struct msm_dp *msm_dp_display,

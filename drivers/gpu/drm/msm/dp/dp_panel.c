@@ -731,6 +731,84 @@ static int msm_dp_panel_setup_vsc_sdp_yuv_420(struct msm_dp_panel *msm_dp_panel)
 	return 0;
 }
 
+static enum dp_colorimetry
+msm_dp_panel_map_colorspace(enum drm_colorspace colorspace, bool is_yuv)
+{
+	switch (colorspace) {
+	case DRM_MODE_COLORIMETRY_BT709_YCC:
+		return DP_COLORIMETRY_BT709_YCC;
+	case DRM_MODE_COLORIMETRY_XVYCC_601:
+		return DP_COLORIMETRY_XVYCC_601;
+	case DRM_MODE_COLORIMETRY_XVYCC_709:
+		return DP_COLORIMETRY_XVYCC_709;
+	case DRM_MODE_COLORIMETRY_SYCC_601:
+		return DP_COLORIMETRY_SYCC_601;
+	case DRM_MODE_COLORIMETRY_OPYCC_601:
+		return DP_COLORIMETRY_OPYCC_601;
+	case DRM_MODE_COLORIMETRY_BT2020_CYCC:
+		return DP_COLORIMETRY_BT2020_CYCC;
+	case DRM_MODE_COLORIMETRY_BT2020_RGB:
+		return DP_COLORIMETRY_BT2020_RGB;
+	case DRM_MODE_COLORIMETRY_BT2020_YCC:
+		return DP_COLORIMETRY_BT2020_YCC;
+	case DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65:
+	case DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER:
+		return DP_COLORIMETRY_DCI_P3_RGB;
+	default:
+		if (is_yuv)
+			return DP_COLORIMETRY_BT709_YCC;
+		return DP_COLORIMETRY_DEFAULT;
+	}
+}
+
+int msm_dp_panel_setup_vsc_sdp_colorimetry(struct msm_dp_panel *msm_dp_panel,
+					    enum drm_colorspace colorspace)
+{
+	struct msm_dp_display_mode *msm_dp_mode;
+	struct drm_dp_vsc_sdp vsc_sdp_data;
+	struct dp_sdp vsc_sdp;
+	bool is_yuv;
+	ssize_t len;
+
+	if (!msm_dp_panel) {
+		DRM_ERROR("invalid input\n");
+		return -EINVAL;
+	}
+
+	msm_dp_mode = &msm_dp_panel->msm_dp_mode;
+	is_yuv = msm_dp_mode->out_fmt_is_yuv_420;
+
+	memset(&vsc_sdp_data, 0, sizeof(vsc_sdp_data));
+
+	/* VSC SDP header as per table 2-118 of DP 1.4 specification */
+	vsc_sdp_data.sdp_type = DP_SDP_VSC;
+	vsc_sdp_data.revision = 0x05;
+	vsc_sdp_data.length = 0x13;
+
+	/* DB16: pixel format + colorimetry */
+	vsc_sdp_data.pixelformat = is_yuv ? DP_PIXELFORMAT_YUV420
+					  : DP_PIXELFORMAT_RGB;
+	vsc_sdp_data.colorimetry = msm_dp_panel_map_colorspace(colorspace,
+							       is_yuv);
+
+	/* DB17: bpc + dynamic range */
+	vsc_sdp_data.bpc = msm_dp_mode->bpp / 3;
+	vsc_sdp_data.dynamic_range = DP_DYNAMIC_RANGE_CTA;
+
+	/* DB18: content type */
+	vsc_sdp_data.content_type = DP_CONTENT_TYPE_GRAPHICS;
+
+	len = drm_dp_vsc_sdp_pack(&vsc_sdp_data, &vsc_sdp);
+	if (len < 0) {
+		DRM_ERROR("unable to pack vsc sdp\n");
+		return len;
+	}
+
+	msm_dp_panel_enable_vsc_sdp(msm_dp_panel, &vsc_sdp);
+
+	return 0;
+}
+
 int msm_dp_panel_timing_cfg(struct msm_dp_panel *msm_dp_panel, bool wide_bus_en)
 {
 	u32 data, total_ver, total_hor;
