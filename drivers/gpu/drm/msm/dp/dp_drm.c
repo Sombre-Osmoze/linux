@@ -371,5 +371,21 @@ struct drm_connector *msm_dp_drm_connector_init(struct msm_dp *msm_dp_display,
 	if (!msm_dp_display->is_edp)
 		drm_connector_attach_dp_subconnector_property(connector);
 
+	/*
+	 * Ensure connector state is allocated before attaching max_bpc,
+	 * which writes to connector->state->max_requested_bpc.  The bridge
+	 * connector's .reset allocates state via
+	 * drm_atomic_helper_connector_reset().
+	 */
+	if (connector->funcs && connector->funcs->reset)
+		connector->funcs->reset(connector);
+
+	if (connector->dev) {
+		drm_connector_attach_max_bpc_property(connector, 8, 10);
+		drm_connector_attach_hdr_output_metadata_property(connector);
+	}
+
+	if (!drm_mode_create_dp_colorspace_property(connector, 0))
+		drm_connector_attach_colorspace_property(connector);
 	return connector;
 }
