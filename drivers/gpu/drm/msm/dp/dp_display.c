@@ -1526,6 +1526,53 @@ static void msm_dp_display_setup_hdr_sdp(struct msm_dp_display_private *dp_displ
 	drm_dbg_dp(dp->drm_dev, "HDR infoframe SDP + VSC colorimetry programmed\n");
 }
 
+/**
+ * msm_dp_display_flush_commit - update SDPs after a property-only atomic commit
+ * @msm_dp_display: the DP/eDP display
+ * @state: the just-committed atomic state
+ *
+ * Called from msm_atomic_commit_tail after every commit.  When the HDR output
+ * metadata or colorspace connector property changes without a full modeset
+ * (e.g. KWin enabling HDR), this function re-programs the HDR infoframe SDP
+ * and VSC colorimetry SDP directly while the link is active, without
+ * requiring bridge disable/enable.
+ */
+void msm_dp_display_flush_commit(struct msm_dp *dp,
+				 struct drm_atomic_commit *state)
+{
+	struct msm_dp_display_private *dp_display;
+	const struct drm_connector_state *old_conn_state, *new_conn_state;
+
+	pr_err("msm_dp: flush_commit ENTRY is_edp=%d power=%d connector=%p\n",
+	       dp->is_edp, dp->power_on, dp->connector);
+
+	if (!dp->power_on || !dp->connector)
+		return;
+
+	new_conn_state = drm_atomic_get_new_connector_state(state, dp->connector);
+	if (!new_conn_state)
+		return;
+
+	/* Connector is in this commit — trace colorspace regardless of change */
+	pr_info_ratelimited("msm_dp: flush_commit dp is_edp=%d colorspace=%u hdr_meta=%p power=%d\n",
+		dp->is_edp, new_conn_state->colorspace,
+		new_conn_state->hdr_output_metadata, dp->power_on);
+
+	old_conn_state = drm_atomic_get_old_connector_state(state, dp->connector);
+	if (!old_conn_state)
+		return;
+
+	if (old_conn_state->hdr_output_metadata == new_conn_state->hdr_output_metadata &&
+	    old_conn_state->colorspace == new_conn_state->colorspace)
+		return;
+
+	dp_display = container_of(dp, struct msm_dp_display_private, msm_dp_display);
+
+	pr_info("msm_dp: HDR/colorspace changed on live link (is_edp=%d), updating SDPs\n",
+		dp->is_edp);
+	msm_dp_display_setup_hdr_sdp(dp_display, state);
+}
+
 void msm_dp_display_atomic_pre_enable(struct msm_dp *msm_dp_display,
 				      struct drm_atomic_commit *state)
 {

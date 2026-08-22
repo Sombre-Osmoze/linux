@@ -11,6 +11,7 @@
 #include "msm_drv.h"
 #include "msm_gem.h"
 #include "msm_kms.h"
+#include "dp/dp_display.h"
 
 /*
  * Helpers to control vblanks while we flush.. basically just to ensure
@@ -247,6 +248,19 @@ void msm_atomic_commit_tail(struct drm_atomic_commit *state)
 	drm_atomic_helper_commit_modeset_disables(dev, state);
 	drm_atomic_helper_commit_planes(dev, state, 0);
 	drm_atomic_helper_commit_modeset_enables(dev, state);
+
+	/*
+	 * For property-only commits (e.g. HDR enable/disable), the bridge
+	 * atomic_enable path never fires.  Flush DP SDPs directly here so
+	 * HDR infoframe and VSC colorimetry packets are sent to the panel
+	 * whenever the connector properties change while the link is active.
+	 */
+	pr_err_ratelimited("msm_atomic: commit_tail dp[]=%p %p %p %p\n",
+		     kms->dp[0], kms->dp[1], kms->dp[2], kms->dp[3]);
+	for (int _dp_i = 0; _dp_i < MSM_DP_CONTROLLER_COUNT; _dp_i++) {
+		if (kms->dp[_dp_i])
+			msm_dp_display_flush_commit(kms->dp[_dp_i], state);
+	}
 
 	if (async) {
 		struct msm_pending_timer *timer =

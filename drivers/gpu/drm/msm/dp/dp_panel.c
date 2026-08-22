@@ -767,6 +767,7 @@ int msm_dp_panel_setup_vsc_sdp_colorimetry(struct msm_dp_panel *msm_dp_panel,
 	struct msm_dp_display_mode *msm_dp_mode;
 	struct drm_dp_vsc_sdp vsc_sdp_data;
 	struct dp_sdp vsc_sdp;
+	enum dp_colorimetry dp_cs;
 	bool is_yuv;
 	ssize_t len;
 
@@ -778,6 +779,20 @@ int msm_dp_panel_setup_vsc_sdp_colorimetry(struct msm_dp_panel *msm_dp_panel,
 	msm_dp_mode = &msm_dp_panel->msm_dp_mode;
 	is_yuv = msm_dp_mode->out_fmt_is_yuv_420;
 
+	dp_cs = msm_dp_panel_map_colorspace(colorspace, is_yuv);
+
+	/*
+	 * If colorimetry is DEFAULT the panel uses its own native defaults.
+	 * Sending a VSC SDP with DP_COLORIMETRY_DEFAULT + CTA dynamic range
+	 * would tell the sink to use limited (16-235) swing which causes
+	 * desaturation on full-range eDP panels.  Disable colorimetry VSC
+	 * and let the sink fall back to its default behaviour.
+	 */
+	if (dp_cs == DP_COLORIMETRY_DEFAULT) {
+		msm_dp_panel_disable_vsc_sdp(msm_dp_panel);
+		return 0;
+	}
+
 	memset(&vsc_sdp_data, 0, sizeof(vsc_sdp_data));
 
 	/* VSC SDP header as per table 2-118 of DP 1.4 specification */
@@ -788,12 +803,28 @@ int msm_dp_panel_setup_vsc_sdp_colorimetry(struct msm_dp_panel *msm_dp_panel,
 	/* DB16: pixel format + colorimetry */
 	vsc_sdp_data.pixelformat = is_yuv ? DP_PIXELFORMAT_YUV420
 					  : DP_PIXELFORMAT_RGB;
-	vsc_sdp_data.colorimetry = msm_dp_panel_map_colorspace(colorspace,
-							       is_yuv);
+	vsc_sdp_data.colorimetry = dp_cs;
 
-	/* DB17: bpc + dynamic range */
+	/*
+	 * DB17: dynamic range.
+	 * RGB wide-gamut colorimetries (BT.2020_RGB, DCI-P3_RGB, opRGB)
+	 * are full-swing (VESA range).  YCC and CTA-derived colorimetries
+	 * use limited-swing (CTA range).
+	 */
+	switch (dp_cs) {
+	case DP_COLORIMETRY_BT2020_RGB:
+	case DP_COLORIMETRY_DCI_P3_RGB:
+	case DP_COLORIMETRY_RGB_WIDE_FIXED:
+	case DP_COLORIMETRY_RGB_WIDE_FLOAT:
+		vsc_sdp_data.dynamic_range = DP_DYNAMIC_RANGE_VESA;
+		break;
+	default:
+		vsc_sdp_data.dynamic_range = DP_DYNAMIC_RANGE_CTA;
+		break;
+	}
+
+	/* DB17: bpc */
 	vsc_sdp_data.bpc = msm_dp_mode->bpp / 3;
-	vsc_sdp_data.dynamic_range = DP_DYNAMIC_RANGE_CTA;
 
 	/* DB18: content type */
 	vsc_sdp_data.content_type = DP_CONTENT_TYPE_GRAPHICS;

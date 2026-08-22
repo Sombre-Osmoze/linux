@@ -42,5 +42,6 @@ void msm_dp_display_atomic_enable(struct msm_dp *dp_display,
 enum drm_mode_status msm_dp_display_mode_valid(struct msm_dp *dp,
 					       const struct drm_display_info *info,
 					       const struct drm_display_mode *mode);
+void msm_dp_display_flush_commit(struct msm_dp *dp, struct drm_atomic_commit *state);
 
 #endif /* _DP_DISPLAY_H_ */
