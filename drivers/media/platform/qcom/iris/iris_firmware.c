@@ -6,9 +6,7 @@
 #include <linux/firmware.h>
 #include <linux/firmware/qcom/qcom_pas.h>
 #include <linux/firmware/qcom/qcom_scm.h>
-#include <linux/iommu.h>
 #include <linux/of_address.h>
-#include <linux/of_device.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
@@ -215,22 +213,7 @@ static int iris_load_fw_to_memory(struct iris_core *core)
 			    IRIS_PAS_ID, mem_virt, mem_phys, res_size, NULL);
 
 	if (!ret)
-		iris_detect_firmware(core, fw_name, mem_virt, res_size, desc);
-	memunmap(mem_virt);
-	if (ret)
-		goto err_release_fw;
-
-	if (core->fw.iommu_domain) {
-		ret = iommu_map(core->fw.iommu_domain, IRIS_FW_START_ADDR, mem_phys, res_size,
-				IOMMU_READ | IOMMU_WRITE | IOMMU_PRIV, GFP_KERNEL);
-		if (ret) {
-			dev_err(core->dev, "failed to map firmware in IOMMU: %d\n", ret);
-			goto err_release_fw;
-		}
-
-		core->fw.mapped_mem_size = res_size;
-	}
-
+		iris_detect_firmware(core, fw_name, mem_virt, res_size, desc);	memunmap(mem_virt);
 err_release_fw:
 	release_firmware(firmware);
 
