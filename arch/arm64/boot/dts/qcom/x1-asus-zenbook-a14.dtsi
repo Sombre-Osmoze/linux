@@ -907,6 +907,30 @@
 	};
 };
 
+/* csiphy0-2: no camera connected, but must be enabled so qcom-camss
+ * can acquire all PHYs listed in camss phys/phy-names and not loop
+ * on EPROBE_DEFER indefinitely. Same supplies as csiphy4. */
+&csiphy0 {
+	vdda-0p8-supply = <&vreg_l2c_0p8>;
+	vdda-1p2-supply = <&vreg_l1c_1p2>;
+	phy-type = <PHY_TYPE_DPHY>;
+	status = "okay";
+};
+
+&csiphy1 {
+	vdda-0p8-supply = <&vreg_l2c_0p8>;
+	vdda-1p2-supply = <&vreg_l1c_1p2>;
+	phy-type = <PHY_TYPE_DPHY>;
+	status = "okay";
+};
+
+&csiphy2 {
+	vdda-0p8-supply = <&vreg_l2c_0p8>;
+	vdda-1p2-supply = <&vreg_l1c_1p2>;
+	phy-type = <PHY_TYPE_DPHY>;
+	status = "okay";
+};
+
 &csiphy4 {
 	vdda-0p8-supply = <&vreg_l2c_0p8>;
 	vdda-1p2-supply = <&vreg_l1c_1p2>;
