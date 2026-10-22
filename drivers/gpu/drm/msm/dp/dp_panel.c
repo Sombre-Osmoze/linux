@@ -10,6 +10,9 @@
 #include <drm/drm_connector.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_of.h>
+#include <drm/display/drm_hdmi_helper.h>
+
+#include <linux/hdmi.h>
 #include <drm/drm_print.h>
 
 #include <linux/io.h>
@@ -462,8 +465,7 @@ static void msm_dp_panel_tpg_enable(struct msm_dp_panel *msm_dp_panel,
 
 
 	msm_dp_write_pn(panel, MMSS_DP_INTF_HSYNC_CTL, hsync_ctl);
-	msm_dp_write_pn(panel, MMSS_DP_INTF_VSYNC_PERIOD_F0, vsync_period *
-			hsync_period);
+	msm_dp_write_pn(panel, MMSS_DP_INTF_VSYNC_PERIOD_F0, vsync_period *			hsync_period);
 	msm_dp_write_pn(panel, MMSS_DP_INTF_VSYNC_PULSE_WIDTH_F0, v_sync_width *
 			hsync_period);
 	msm_dp_write_pn(panel, MMSS_DP_INTF_VSYNC_PERIOD_F1, 0);
@@ -617,6 +619,71 @@ void msm_dp_panel_disable_vsc_sdp(struct msm_dp_panel *msm_dp_panel)
 
 	pr_debug("misc settings = 0x%x\n", misc);
 	msm_dp_write_link(panel, REG_DP_MISC1_MISC0, misc);
+
+	msm_dp_panel_update_sdp(panel);
+}
+
+static void msm_dp_panel_send_hdr_sdp(struct msm_dp_panel_private *panel,
+				       struct dp_sdp *hdr_sdp)
+{
+	u32 header[2];
+	u32 val;
+	int i;
+
+	msm_dp_utils_pack_sdp_header(&hdr_sdp->sdp_header, header);
+
+	msm_dp_write_link(panel, MMSS_DP_GENERIC1_0, header[0]);
+	msm_dp_write_link(panel, MMSS_DP_GENERIC1_1, header[1]);
+
+	for (i = 0; i < sizeof(hdr_sdp->db); i += 4) {
+		val = ((hdr_sdp->db[i]) | (hdr_sdp->db[i + 1] << 8) |
+		       (hdr_sdp->db[i + 2] << 16) |
+		       (hdr_sdp->db[i + 3] << 24));
+		msm_dp_write_link(panel, MMSS_DP_GENERIC1_2 + i, val);
+	}
+}
+
+void msm_dp_panel_enable_hdr_sdp(struct msm_dp_panel *msm_dp_panel,
+				 struct dp_sdp *hdr_sdp)
+{
+	struct msm_dp_panel_private *panel =
+		container_of(msm_dp_panel, struct msm_dp_panel_private,
+			     msm_dp_panel);
+	u32 cfg, cfg2;
+
+	cfg = msm_dp_read_link(panel, MMSS_DP_SDP_CFG);
+	cfg2 = msm_dp_read_link(panel, MMSS_DP_SDP_CFG2);
+
+	cfg |= GEN1_SDP_EN;
+	msm_dp_write_link(panel, MMSS_DP_SDP_CFG, cfg);
+
+	cfg2 |= GENERIC1_SDPSIZE_VALID;
+	msm_dp_write_link(panel, MMSS_DP_SDP_CFG2, cfg2);
+
+	msm_dp_panel_send_hdr_sdp(panel, hdr_sdp);
+
+	drm_dbg_dp(panel->drm_dev, "hdr sdp enable=1\n");
+
+	msm_dp_panel_update_sdp(panel);
+}
+
+void msm_dp_panel_disable_hdr_sdp(struct msm_dp_panel *msm_dp_panel)
+{
+	struct msm_dp_panel_private *panel =
+		container_of(msm_dp_panel, struct msm_dp_panel_private,
+			     msm_dp_panel);
+	u32 cfg, cfg2;
+
+	cfg = msm_dp_read_link(panel, MMSS_DP_SDP_CFG);
+	cfg2 = msm_dp_read_link(panel, MMSS_DP_SDP_CFG2);
+
+	cfg &= ~GEN1_SDP_EN;
+	msm_dp_write_link(panel, MMSS_DP_SDP_CFG, cfg);
+
+	cfg2 &= ~GENERIC1_SDPSIZE_VALID;
+	msm_dp_write_link(panel, MMSS_DP_SDP_CFG2, cfg2);
+
+	drm_dbg_dp(panel->drm_dev, "hdr sdp enable=0\n");
 
 	msm_dp_panel_update_sdp(panel);
 }

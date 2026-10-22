@@ -12,8 +12,11 @@
 #include <linux/phy/phy.h>
 #include <linux/delay.h>
 #include <linux/string_choices.h>
+#include <linux/hdmi.h>
 #include <drm/display/drm_dp_aux_bus.h>
 #include <drm/display/drm_hdmi_audio_helper.h>
+#include <drm/display/drm_hdmi_helper.h>
+#include <drm/drm_atomic.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_panel.h>
 
@@ -1452,6 +1455,70 @@ int msm_dp_modeset_init(struct msm_dp *msm_dp_display, struct drm_device *dev,
 	return 0;
 }
 
+/**
+ * msm_dp_display_setup_hdr_sdp() - pack and send HDR infoframe SDP
+ * @dp_display: private display structure
+ * @state: atomic state to get connector state from
+ *
+ * Reads hdr_output_metadata from the connector state, packs it into a
+ * DP Secondary Data Packet (per DP 1.4a Table 2-100) and programs the
+ * hardware to send it every frame via the GENERIC1 packet slot.
+ */
+static void msm_dp_display_setup_hdr_sdp(struct msm_dp_display_private *dp_display,
+					  struct drm_atomic_state *state)
+{
+	struct msm_dp *dp = &dp_display->msm_dp_display;
+	struct drm_connector *connector = dp->connector;
+	struct drm_connector_state *conn_state;
+	struct hdmi_drm_infoframe drm_infoframe;
+	struct dp_sdp hdr_sdp;
+	unsigned char buf[HDMI_INFOFRAME_HEADER_SIZE + HDMI_DRM_INFOFRAME_SIZE];
+	ssize_t len;
+	int ret;
+
+	if (!connector)
+		return;
+
+	conn_state = drm_atomic_get_new_connector_state(state, connector);
+	if (!conn_state)
+		return;
+
+	if (!conn_state->hdr_output_metadata) {
+		msm_dp_panel_disable_hdr_sdp(dp_display->panel);
+		return;
+	}
+
+	ret = drm_hdmi_infoframe_set_hdr_metadata(&drm_infoframe, conn_state);
+	if (ret) {
+		drm_dbg_dp(dp->drm_dev,
+			   "failed to set HDR metadata: %d\n", ret);
+		return;
+	}
+
+	len = hdmi_drm_infoframe_pack_only(&drm_infoframe, buf, sizeof(buf));
+	if (len < 0) {
+		drm_dbg_dp(dp->drm_dev,
+			   "failed to pack HDR infoframe: %zd\n", len);
+		return;
+	}
+
+	/* Build DP SDP from HDMI DRM infoframe (DP 1.4a Table 2-100) */
+	memset(&hdr_sdp, 0, sizeof(hdr_sdp));
+	hdr_sdp.sdp_header.HB0 = 0;
+	hdr_sdp.sdp_header.HB1 = drm_infoframe.type;
+	hdr_sdp.sdp_header.HB2 = 0x1D;	/* Payload Data Byte Count - 1 */
+	hdr_sdp.sdp_header.HB3 = (0x13 << 2);	/* Infoframe SDP Version */
+	hdr_sdp.db[0] = drm_infoframe.version;
+	hdr_sdp.db[1] = drm_infoframe.length;
+	BUILD_BUG_ON(sizeof(hdr_sdp.db) - 2 < HDMI_DRM_INFOFRAME_SIZE);
+	memcpy(&hdr_sdp.db[2], &buf[HDMI_INFOFRAME_HEADER_SIZE],
+	       HDMI_DRM_INFOFRAME_SIZE);
+
+	msm_dp_panel_enable_hdr_sdp(dp_display->panel, &hdr_sdp);
+
+	drm_dbg_dp(dp->drm_dev, "HDR infoframe SDP programmed\n");
+}
+
 void msm_dp_display_atomic_pre_enable(struct msm_dp *msm_dp_display,
 				      struct drm_atomic_commit *state)
 {
@@ -1497,6 +1564,9 @@ void msm_dp_display_atomic_enable(struct msm_dp *msm_dp_display,
 		DRM_ERROR("DP display post enable failed, rc=%d\n", rc);
 		msm_dp_display_disable(dp, dp->panel);
 	}
+
+	/* Program HDR infoframe SDP if HDR metadata is set */
+	msm_dp_display_setup_hdr_sdp(dp, state);
 
 	drm_dbg_dp(msm_dp_display->drm_dev, "type=%d Done\n", msm_dp_display->connector_type);
 }
