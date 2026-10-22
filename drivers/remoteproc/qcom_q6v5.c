@@ -36,6 +36,25 @@ static int q6v5_load_state_toggle(struct qcom_q6v5 *q6v5, bool enable)
 	return ret;
 }
 
+static int q6v5_init(struct qcom_q6v5 *q6v5, bool handover_issued)
+{
+	int ret;
+
+	/* Always send correct load state in case it was not done before */
+	ret = q6v5_load_state_toggle(q6v5, true);
+	if (ret)
+		return ret;
+
+	reinit_completion(&q6v5->start_done);
+	reinit_completion(&q6v5->stop_done);
+
+	q6v5->running = true;
+	q6v5->handover_issued = handover_issued;
+
+	enable_irq(q6v5->handover_irq);
+	return 0;
+}
+
 static void q6v5_handover_irq_enable(struct qcom_q6v5 *q6v5)
 {
 	unsigned long flags;

@@ -261,8 +261,7 @@ static void iris_remove(struct platform_device *pdev)
 
 	v4l2_device_unregister(&core->v4l2_dev);
 
-	iris_unreserve_iova_region(core->dev, core->iova_state);
-	mutex_destroy(&core->lock);
+	iris_unreserve_iova_region(core->dev, core->iova_state);	mutex_destroy(&core->lock);
 }
 
 static void iris_sys_error_handler(struct work_struct *work)
@@ -325,8 +324,7 @@ static int iris_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = iris_reserve_iova_region(dev, &core->iova_state, IRIS_NP_RESERVE_IOVA_START,
-				       IRIS_NP_RESERVE_IOVA_SIZE);	ret = v4l2_device_register(dev, &core->v4l2_dev);
->>>>>>> 480bdb4003df (media: iris: Port firmware loading without TZ/PAS from venus)
+				       IRIS_NP_RESERVE_IOVA_SIZE);
 	if (ret)
 		return ret;
 

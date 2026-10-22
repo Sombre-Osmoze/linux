@@ -429,28 +429,6 @@ static void qcom_pas_handover(struct qcom_q6v5 *q6v5)
 	qcom_pas_pds_disable(pas, pas->proxy_pds, pas->proxy_pd_count);
 }
 
-static int qcom_pas_shutdown(int pas_id, int lite_pas_id)
-{
-	int ret, lite_ret = -ENODEV;
-
-	/*
-	 * We don't know if the boot firmware started the "full" or "lite"
-	 * firmware, so we don't know if we need to shutdown the lite_pas_id or
-	 * the normal pas_id. Unfortunately, the return codes of the SCM calls
-	 * are also not helpful to figure that out. Since shutting down a
-	 * stopped remoteproc is a no-op, we just shutdown both and if one of
-	 * the calls succeeds, we assume it's okay.
-	 */
-	if (lite_pas_id)
-		lite_ret = qcom_scm_pas_shutdown(lite_pas_id);
-
-	ret = qcom_scm_pas_shutdown(pas_id);
-	if (ret && lite_ret)
-		return ret;
-
-	return 0;
-}
-
 static int qcom_pas_stop(struct rproc *rproc)
 {
 	struct qcom_pas *pas = rproc->priv;
@@ -490,13 +468,6 @@ static int qcom_pas_stop(struct rproc *rproc)
 		ret = qcom_smem_bust_hwspin_lock_by_host(pas->smem_host_id);
 
 	return ret;
-}
-
-static int qcom_pas_attach(struct rproc *rproc)
-{
-	struct qcom_pas *pas = rproc->priv;
-
-	return qcom_q6v5_attach(&pas->q6v5);
 }
 
 static void *qcom_pas_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)

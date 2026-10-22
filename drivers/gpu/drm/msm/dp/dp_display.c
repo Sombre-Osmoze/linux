@@ -1465,7 +1465,7 @@ int msm_dp_modeset_init(struct msm_dp *msm_dp_display, struct drm_device *dev,
  * hardware to send it every frame via the GENERIC1 packet slot.
  */
 static void msm_dp_display_setup_hdr_sdp(struct msm_dp_display_private *dp_display,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	struct msm_dp *dp = &dp_display->msm_dp_display;
 	struct drm_connector *connector = dp->connector;
@@ -1486,7 +1486,7 @@ static void msm_dp_display_setup_hdr_sdp(struct msm_dp_display_private *dp_displ
 	if (!conn_state->hdr_output_metadata) {
 		msm_dp_panel_disable_hdr_sdp(dp_display->panel);
 		/* Disable colorimetry VSC unless YUV420 path owns it */
-		if (!dp_display->msm_dp_mode.out_fmt_is_yuv_420)
+		if (!dp_display->panel->msm_dp_mode.out_fmt_is_yuv_420)
 			msm_dp_panel_disable_vsc_sdp(dp_display->panel);
 		return;
 	}
