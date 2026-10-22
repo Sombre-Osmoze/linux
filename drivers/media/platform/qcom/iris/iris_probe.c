@@ -14,6 +14,7 @@
 
 #include "iris_core.h"
 #include "iris_ctrls.h"
+#include "iris_firmware.h"
 #include "iris_vidc.h"
 
 static int iris_init_icc(struct iris_core *core)
@@ -261,7 +262,6 @@ static void iris_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&core->v4l2_dev);
 
 	iris_unreserve_iova_region(core->dev, core->iova_state);
-
 	mutex_destroy(&core->lock);
 }
 
@@ -325,7 +325,8 @@ static int iris_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = iris_reserve_iova_region(dev, &core->iova_state, IRIS_NP_RESERVE_IOVA_START,
-				       IRIS_NP_RESERVE_IOVA_SIZE);
+				       IRIS_NP_RESERVE_IOVA_SIZE);	ret = v4l2_device_register(dev, &core->v4l2_dev);
+>>>>>>> 480bdb4003df (media: iris: Port firmware loading without TZ/PAS from venus)
 	if (ret)
 		return ret;
 
